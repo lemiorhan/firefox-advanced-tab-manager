@@ -330,6 +330,69 @@
       color: #0d47a1;
       border: 1px solid #bbdefb;
     }
+
+    .sync-notes {
+      margin: 8px 0 0 0;
+      padding-left: 20px;
+      font-size: 13px;
+      color: #666;
+      line-height: 1.45;
+    }
+
+    #syncSlotList {
+      list-style: none;
+      padding: 0;
+      margin: 15px 0 0 0;
+    }
+
+    #syncSlotList li {
+      padding: 12px;
+      margin-bottom: 8px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #syncSlotList.offered li {
+      outline: 2px solid #0d47a1;
+    }
+
+    .slot-detail {
+      color: #666;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .slot-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .slot-btn {
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: white;
+    }
+
+    .slot-restore {
+      background: #007bff;
+    }
+
+    .slot-delete {
+      background: #dc3545;
+    }
+
+    .slot-btn:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
   </style>
 </head>
 
@@ -503,6 +566,62 @@
   </div>
 
   <div class="section">
+    <h2>Automatic backup</h2>
+
+    <label class="checkbox-label">
+      <input
+        type="checkbox"
+        id="syncBackupEnabled"
+      />
+
+      <span>
+        Keep a backup of my rules in Firefox Sync
+      </span>
+    </label>
+
+    <ul class="sync-notes">
+      <li>
+        Backups travel through Firefox Sync. Sign in to Firefox Sync and tick "Add-ons" in its settings. Firefox syncs about every 10 minutes.
+      </li>
+
+      <li>
+        Firefox for Android does not sync them.
+      </li>
+
+      <li>
+        Removing the extension deletes these backups from every synced device. Use Export Rules for a copy that survives.
+      </li>
+
+      <li>
+        What is sent: rule names, URL patterns, colors, the four settings above, and a device label with your operating system name. Firefox Sync encrypts it.
+      </li>
+
+      <li>
+        Turning this off stops updates. The last copy stays in Firefox Sync until you delete it from the list.
+      </li>
+
+      <li>
+        Restore uses the mode chosen under "Backup &amp; Restore".
+      </li>
+    </ul>
+
+    <div
+      id="syncBackupOffer"
+      class="status"
+      role="status"
+    ></div>
+
+    <div
+      id="syncBackupState"
+      class="status"
+      role="status"
+      aria-live="polite"
+    ></div>
+
+    <ul id="syncSlotList"></ul>
+  </div>
+
+  <div class="section">
     <h2 id="groupFormTitle">
       Add New Rule
     </h2>
@@ -570,6 +689,7 @@
   </div>
 
   <script src="shared.js"></script>
+  <script src="backup.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

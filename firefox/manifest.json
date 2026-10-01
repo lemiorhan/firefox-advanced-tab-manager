@@ -12,7 +12,7 @@
   },
   "permissions": ["tabs", "tabGroups", "storage", "theme", "contextualIdentities"],
   "background": {
-    "scripts": ["background.js"],
+    "scripts": ["backup.js", "sync-backup.js", "background.js"],
     "persistent": true
   },
   "options_ui": {
