@@ -1,31 +1,7 @@
 // Advanced Tab Manager - Options page
 
-const EXPORT_SCHEMA =
-  "advanced-tab-manager";
-
-// Backups written before the extension was renamed from Auto Group Tabs.
-const LEGACY_EXPORT_SCHEMAS =
-  new Set([
-    "auto-group-tabs"
-  ]);
-
-const EXPORT_VERSION = 2;
-
 const MAX_IMPORT_FILE_SIZE =
   1024 * 1024;
-
-const STORAGE_COLORS =
-  new Set([
-    "blue",
-    "yellow",
-    "red",
-    "green",
-    "purple",
-    "orange",
-    "pink",
-    "cyan",
-    "gray"
-  ]);
 
 // -----------------------------------------------------------------------------
 // Rule form
@@ -224,122 +200,6 @@ function clearStatus() {
 }
 
 // -----------------------------------------------------------------------------
-// Import / export validation
-// -----------------------------------------------------------------------------
-
-function normalizeStorageColor(
-  color
-) {
-  if (
-    typeof color !==
-    "string"
-  ) {
-    return "blue";
-  }
-
-  let normalized =
-    color
-      .trim()
-      .toLowerCase();
-
-  if (
-    normalized === "grey"
-  ) {
-    normalized = "gray";
-  }
-
-  return STORAGE_COLORS.has(
-    normalized
-  )
-    ? normalized
-    : "blue";
-}
-
-function validateAndNormalizeRule(
-  rule,
-  index
-) {
-  if (
-    !rule ||
-    typeof rule !== "object" ||
-    Array.isArray(rule)
-  ) {
-    throw new Error(
-      `Rule ${index + 1} is not a valid object.`
-    );
-  }
-
-  if (
-    typeof rule.name !==
-      "string" ||
-    !rule.name.trim()
-  ) {
-    throw new Error(
-      `Rule ${index + 1} has no group name.`
-    );
-  }
-
-  if (
-    typeof rule.pattern !==
-      "string" ||
-    !rule.pattern.trim()
-  ) {
-    throw new Error(
-      `Rule "${rule.name}" has no URL pattern.`
-    );
-  }
-
-  const result = {
-    name:
-      rule.name.trim(),
-
-    pattern:
-      rule.pattern.trim(),
-
-    color:
-      normalizeStorageColor(
-        rule.color
-      )
-  };
-
-  if (
-    Number.isInteger(
-      rule.createdOrder
-    ) &&
-    rule.createdOrder > 0
-  ) {
-    result.createdOrder =
-      rule.createdOrder;
-  }
-
-  return result;
-}
-
-function validateRuleNames(
-  groups
-) {
-  const seen =
-    new Set();
-
-  for (
-    const rule of groups
-  ) {
-    const key =
-      rule.name
-        .trim()
-        .toLowerCase();
-
-    if (seen.has(key)) {
-      throw new Error(
-        `The import contains more than one rule named "${rule.name}".`
-      );
-    }
-
-    seen.add(key);
-  }
-}
-
-// -----------------------------------------------------------------------------
 // Export
 // -----------------------------------------------------------------------------
 
@@ -350,12 +210,7 @@ async function exportRules() {
     const groups =
       await getGroupsWithCreatedOrder();
 
-    const {
-      groupUnmatched = true,
-      groupSortMode = "alphabetical",
-      groupColorMode = "assigned",
-      selectedTabTheme = false
-    } =
+    const settings =
       await browser.storage.local.get([
         "groupUnmatched",
         "groupSortMode",
@@ -363,48 +218,13 @@ async function exportRules() {
         "selectedTabTheme"
       ]);
 
-    const normalizedGroups =
-      groups.map(
-        (rule, index) =>
-          validateAndNormalizeRule(
-            rule,
-            index
-          )
-      );
-
-    const backup = {
-      schema:
-        EXPORT_SCHEMA,
-
-      version:
-        EXPORT_VERSION,
-
-      exportedAt:
+    const backup =
+      buildBackupObject(
+        groups,
+        settings,
         new Date()
-          .toISOString(),
-
-      settings: {
-        groupUnmatched,
-
-        groupSortMode:
-          groupSortMode ===
-          "creation"
-            ? "creation"
-            : "alphabetical",
-
-        groupColorMode:
-          groupColorMode ===
-          "random"
-            ? "random"
-            : "assigned",
-
-        selectedTabTheme:
-          selectedTabTheme === true
-      },
-
-      groups:
-        normalizedGroups
-    };
+          .toISOString()
+      );
 
     const json =
       JSON.stringify(
@@ -466,7 +286,7 @@ async function exportRules() {
     );
 
     showStatus(
-      `Exported ${normalizedGroups.length} rule(s).`,
+      `Exported ${backup.groups.length} rule(s).`,
       "success"
     );
   } catch (error) {
@@ -480,152 +300,6 @@ async function exportRules() {
       "error"
     );
   }
-}
-
-// -----------------------------------------------------------------------------
-// Backup parser
-// -----------------------------------------------------------------------------
-
-function parseBackupPayload(
-  data
-) {
-  let rawGroups;
-
-  let importedGroupUnmatched;
-
-  let importedGroupSortMode;
-  let importedGroupColorMode;
-  let importedSelectedTabTheme;
-
-  // Raw array compatibility.
-  if (Array.isArray(data)) {
-    rawGroups = data;
-  } else if (
-    data &&
-    typeof data === "object"
-  ) {
-    if (
-      data.schema &&
-      data.schema !==
-        EXPORT_SCHEMA &&
-      !LEGACY_EXPORT_SCHEMAS.has(
-        data.schema
-      )
-    ) {
-      throw new Error(
-        `Unsupported backup schema: ${data.schema}`
-      );
-    }
-
-    if (
-      data.version != null &&
-      data.version >
-        EXPORT_VERSION
-    ) {
-      throw new Error(
-        `This backup uses version ${data.version}. ` +
-        `This extension supports up to version ${EXPORT_VERSION}.`
-      );
-    }
-
-    rawGroups =
-      data.groups;
-
-    if (
-      data.settings &&
-      typeof data.settings
-        .groupUnmatched ===
-        "boolean"
-    ) {
-      importedGroupUnmatched =
-        data.settings
-          .groupUnmatched;
-    } else if (
-      typeof data.groupUnmatched ===
-      "boolean"
-    ) {
-      importedGroupUnmatched =
-        data.groupUnmatched;
-    }
-
-    const sortMode =
-      data.settings
-        ?.groupSortMode ??
-      data.groupSortMode;
-
-    if (
-      sortMode ===
-        "creation" ||
-      sortMode ===
-        "alphabetical"
-    ) {
-      importedGroupSortMode =
-        sortMode;
-    }
-
-    const colorMode =
-      data.settings
-        ?.groupColorMode ??
-      data.groupColorMode;
-
-    if (
-      colorMode ===
-        "assigned" ||
-      colorMode ===
-        "random"
-    ) {
-      importedGroupColorMode =
-        colorMode;
-    }
-
-    const selectedTabTheme =
-      data.settings
-        ?.selectedTabTheme ??
-      data.selectedTabTheme;
-
-    if (
-      typeof selectedTabTheme ===
-      "boolean"
-    ) {
-      importedSelectedTabTheme =
-        selectedTabTheme;
-    }
-  }
-
-  if (
-    !Array.isArray(
-      rawGroups
-    )
-  ) {
-    throw new Error(
-      'The backup does not contain a valid "groups" array.'
-    );
-  }
-
-  const groups =
-    rawGroups.map(
-      (rule, index) =>
-        validateAndNormalizeRule(
-          rule,
-          index
-        )
-    );
-
-  validateRuleNames(
-    groups
-  );
-
-  return {
-    groups,
-    groupUnmatched:
-      importedGroupUnmatched,
-    groupSortMode:
-      importedGroupSortMode,
-    groupColorMode:
-      importedGroupColorMode,
-    selectedTabTheme:
-      importedSelectedTabTheme
-  };
 }
 
 // -----------------------------------------------------------------------------
@@ -723,6 +397,20 @@ function getImportMode() {
   );
 }
 
+function showImportFailure(
+  error
+) {
+  console.error(
+    "Import failed:",
+    error
+  );
+
+  showStatus(
+    `Import failed: ${error.message}`,
+    "error"
+  );
+}
+
 async function importRules(
   file
 ) {
@@ -744,11 +432,11 @@ async function importRules(
     return;
   }
 
+  let data;
+
   try {
     const text =
       await file.text();
-
-    let data;
 
     try {
       data =
@@ -758,14 +446,29 @@ async function importRules(
         "The selected file is not valid JSON."
       );
     }
+  } catch (error) {
+    showImportFailure(
+      error
+    );
 
+    return;
+  }
+
+  await applyBackupPayload(
+    data,
+    getImportMode()
+  );
+}
+
+async function applyBackupPayload(
+  data,
+  mode
+) {
+  try {
     const imported =
       parseBackupPayload(
         data
       );
-
-    const mode =
-      getImportMode();
 
     let finalGroups;
 
@@ -867,14 +570,8 @@ async function importRules(
       );
     }
   } catch (error) {
-    console.error(
-      "Import failed:",
+    showImportFailure(
       error
-    );
-
-    showStatus(
-      `Import failed: ${error.message}`,
-      "error"
     );
   }
 }
@@ -968,8 +665,373 @@ document
   );
 
 // -----------------------------------------------------------------------------
+// Automatic backup (Firefox Sync)
+// -----------------------------------------------------------------------------
+
+let syncBackupRefreshSeq = 0;
+
+function formatSyncTime(iso) {
+  return new Date(iso).toLocaleString();
+}
+
+function renderSyncBackupState(
+  local,
+  hasOwnSlot
+) {
+  const element =
+    document.getElementById(
+      "syncBackupState"
+    );
+
+  const status =
+    local.syncBackupStatus;
+
+  let message = "";
+  let type = "";
+
+  if (
+    local.syncBackupEnabled === true
+  ) {
+    if (status?.error) {
+      message =
+        `Backup failed: ${status.error}`;
+      type = "error";
+    } else if (status?.lastWrittenAt) {
+      message =
+        "Saved in Firefox Sync storage at " +
+        formatSyncTime(
+          status.lastWrittenAt
+        ) +
+        ".";
+      type = "success";
+    } else {
+      message =
+        "Waiting for the first save to Firefox Sync storage.";
+      type = "info";
+    }
+  } else if (hasOwnSlot) {
+    message =
+      "Automatic backup is off. The last copy stays in Firefox Sync until you delete it.";
+    type = "info";
+  }
+
+  element.textContent = message;
+
+  element.className =
+    type ? `status ${type}` : "status";
+}
+
+function syncSlotDetail(slot) {
+  const parts = [];
+
+  if (slot.status === "complete") {
+    parts.push(
+      `${slot.meta.ruleCount} rule(s)`,
+      `saved ${formatSyncTime(slot.meta.exportedAt)}`
+    );
+  } else if (slot.status === "incomplete") {
+    parts.push(
+      "incomplete: still syncing or damaged"
+    );
+  } else {
+    parts.push(
+      "unknown format: made by a different extension version"
+    );
+  }
+
+  if (slot.meta?.active === false) {
+    parts.push("stopped");
+  }
+
+  return parts.join(" · ");
+}
+
+function renderSyncSlots(
+  slots,
+  local
+) {
+  const list =
+    document.getElementById(
+      "syncSlotList"
+    );
+
+  list.textContent = "";
+
+  for (const slot of slots) {
+    const own =
+      slot.deviceId ===
+      local.syncBackupDeviceId;
+
+    const item =
+      document.createElement("li");
+
+    item.dataset.deviceId =
+      slot.deviceId;
+
+    const info =
+      document.createElement("div");
+
+    const title =
+      document.createElement("div");
+
+    title.className = "group-name";
+
+    title.textContent =
+      (slot.meta?.label ?? "Unknown device") +
+      (own ? " (this device)" : "");
+
+    const detail =
+      document.createElement("div");
+
+    detail.className = "slot-detail";
+
+    detail.textContent =
+      syncSlotDetail(slot);
+
+    info.append(title, detail);
+
+    const actions =
+      document.createElement("div");
+
+    actions.className = "slot-actions";
+
+    const restore =
+      document.createElement("button");
+
+    restore.type = "button";
+    restore.className =
+      "slot-btn slot-restore";
+    restore.textContent = "Restore";
+    restore.disabled =
+      slot.status !== "complete";
+
+    restore.addEventListener(
+      "click",
+      () => restoreSyncSlot(slot)
+    );
+
+    const remove =
+      document.createElement("button");
+
+    remove.type = "button";
+    remove.className =
+      "slot-btn slot-delete";
+    remove.textContent = "Delete";
+    remove.disabled =
+      own &&
+      local.syncBackupEnabled === true;
+
+    remove.addEventListener(
+      "click",
+      () => deleteSyncSlot(slot)
+    );
+
+    actions.append(restore, remove);
+    item.append(info, actions);
+    list.append(item);
+  }
+}
+
+async function refreshSyncBackup() {
+  const seq =
+    ++syncBackupRefreshSeq;
+
+  let local;
+  let slots;
+
+  try {
+    local =
+      await browser.storage.local.get([
+        "syncBackupEnabled",
+        "syncBackupDeviceId",
+        "syncBackupStatus"
+      ]);
+
+    slots =
+      await listSlots(
+        await browser.storage.sync.get(
+          null
+        )
+      );
+  } catch (error) {
+    const element =
+      document.getElementById(
+        "syncBackupState"
+      );
+
+    element.textContent =
+      `Firefox Sync storage could not be read: ${error.message}`;
+
+    element.className =
+      "status error";
+
+    return;
+  }
+
+  if (seq !== syncBackupRefreshSeq) {
+    return;
+  }
+
+  document.getElementById(
+    "syncBackupEnabled"
+  ).checked =
+    local.syncBackupEnabled === true;
+
+  renderSyncBackupState(
+    local,
+    slots.some(
+      slot =>
+        slot.deviceId ===
+        local.syncBackupDeviceId
+    )
+  );
+
+  renderSyncSlots(slots, local);
+}
+
+async function restoreSyncSlot(slot) {
+  const mode =
+    getImportMode();
+
+  const modeText =
+    mode === "merge"
+      ? "Merge with the existing rules"
+      : "Replace all rules";
+
+  if (
+    !confirm(
+      `Restore the backup from "${slot.meta?.label ?? slot.deviceId}"?\n\n` +
+        `Mode: ${modeText}.`
+    )
+  ) {
+    return;
+  }
+
+  clearStatus();
+
+  await applyBackupPayload(
+    slot.backup,
+    mode
+  );
+
+  document
+    .getElementById("backupStatus")
+    .scrollIntoView({
+      block: "nearest"
+    });
+}
+
+async function deleteSyncSlot(slot) {
+  if (
+    !confirm(
+      `Delete the backup from "${slot.meta?.label ?? slot.deviceId}" in Firefox Sync?`
+    )
+  ) {
+    return;
+  }
+
+  await browser.storage.sync.remove(
+    slotKeys(
+      await browser.storage.sync.get(
+        null
+      ),
+      slot.deviceId
+    )
+  );
+}
+
+document
+  .getElementById(
+    "syncBackupEnabled"
+  )
+  .addEventListener(
+    "change",
+    async event => {
+      const enabled =
+        event.target.checked;
+
+      await browser.storage.local.set({
+        syncBackupEnabled: enabled
+      });
+
+      const offer =
+        document.getElementById(
+          "syncBackupOffer"
+        );
+
+      const list =
+        document.getElementById(
+          "syncSlotList"
+        );
+
+      offer.textContent = "";
+      offer.className = "status";
+      list.classList.remove("offered");
+
+      if (!enabled) {
+        return;
+      }
+
+      const { syncBackupDeviceId } =
+        await browser.storage.local.get(
+          "syncBackupDeviceId"
+        );
+
+      const slots =
+        await listSlots(
+          await browser.storage.sync.get(
+            null
+          )
+        );
+
+      if (
+        slots.some(
+          slot =>
+            slot.deviceId !==
+            syncBackupDeviceId
+        )
+      ) {
+        offer.textContent =
+          "Backups from other devices are already in Firefox Sync. Restore one from the list below.";
+
+        offer.className =
+          "status info";
+
+        list.classList.add("offered");
+
+        list.scrollIntoView({
+          block: "nearest"
+        });
+      }
+    }
+  );
+
+browser.storage.onChanged.addListener(
+  (changes, areaName) => {
+    if (
+      areaName === "sync"
+        ? Object.keys(changes).some(
+            key =>
+              key.startsWith(
+                SYNC_BACKUP_KEY_PREFIX
+              )
+          )
+        : areaName === "local" &&
+          [
+            "syncBackupStatus",
+            "syncBackupEnabled",
+            "syncBackupDeviceId"
+          ].some(key => key in changes)
+    ) {
+      refreshSyncBackup();
+    }
+  }
+);
+
+// -----------------------------------------------------------------------------
 // Initial load
 // -----------------------------------------------------------------------------
 
 loadSettings();
 refreshList("groupList");
+refreshSyncBackup();
