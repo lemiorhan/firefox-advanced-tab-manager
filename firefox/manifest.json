@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Advanced Tab Manager",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Automatically organize tabs into color-coded groups based on URL patterns. Keep your browser tidy with wildcard rules that group and ungroup tabs dynamically.",
   "author": "Lemi Orhan Ergin",
   "homepage_url": "https://github.com/lemiorhan/firefox-advanced-tab-manager",
