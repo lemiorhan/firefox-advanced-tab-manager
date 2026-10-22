@@ -53,7 +53,7 @@ npx --yes web-ext run --source-dir "$WORK/ext" --no-reload --firefox="$FIREFOX" 
 WX=$!
 
 for _ in $(seq 1 240); do
-  grep -q '"name": "\(DONE\|HARNESS\)"' "$LOG" 2>/dev/null && break
+  grep -q '"name": *"\(DONE\|HARNESS\)"' "$LOG" 2>/dev/null && break
   sleep 1
 done
 
