@@ -10,7 +10,9 @@ Thumbs.db
 
 # Build artifacts
 *.zip
+*.xpi
 web-ext-artifacts/
+.amo-upload-uuid
 
 # Logs
 *.log
